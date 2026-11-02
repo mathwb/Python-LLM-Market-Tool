@@ -1,6 +1,0 @@
-litellm
-yfinance
-pandas
-pandas-market-calendars
-pydantic
-python-dotenv
