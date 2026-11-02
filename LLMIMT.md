@@ -97,7 +97,7 @@ Each major provider runs a **large** and a **small** model (8 slots). Slot label
 * **Retry Loop:** If open prices aren't published yet, the script exits `61` and the backup run retries later.
 * **Idempotency:** Before running full execution, the script checks `last_run.json`. If `last_run_date == today_str` and `status == "SUCCESS"`, the script terminates immediately with log message `[INFO] Execution already completed for today. Exiting.`.
 * **Persistence:** The job commits `llmimt_history.csv` and `last_run.json` back to the repo and uploads `llmimt.log` as a run artifact.
-* **Local runs:** `run_llmimt.bat` still works for manual runs; don't also schedule it locally, or the two ledgers will diverge.
+* **Local runs:** `python llmimt_main.py --dry-run` is safe for testing. Avoid real local runs, or the local and GitHub ledgers will diverge.
 
 ---
 
@@ -152,7 +152,7 @@ The system implements strict, explicit exception hierarchy to ensure visibility 
 | Exception Class | Trigger Condition | Specific Log & CLI Error Message | Handling Action |
 | --- | --- | --- | --- |
 | `MarketClosedError` | Script executed on weekend, holiday, or outside trading days. | `[MARKET_CLOSED] Today ({date}) is not an active trading day on NYSE/NASDAQ. Skipping execution.` | Exit code `0` (Graceful skip). |
-| `DataNotYetAvailableError` | `yfinance` returns `NaN` or missing `Open` prices for target date post-market open. | `[DATA_UNAVAILABLE] Market open data for {ticker} is not yet published by yfinance at {timestamp}. Flagging pending_retry.` | Write `pending_retry.json`, exit code `61` for Task Scheduler retry. |
+| `DataNotYetAvailableError` | `yfinance` returns `NaN` or missing `Open` prices for target date post-market open. | `[DATA_UNAVAILABLE] Market open data for {ticker} is not yet published by yfinance at {timestamp}. Flagging pending_retry.` | Write `pending_retry.json`, exit code `61`; the backup scheduled run retries. |
 | `APIAuthenticationError` | Invalid or missing API key in environment (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`). Includes providers that report bad keys as HTTP 400. | `[AUTH_FAILURE] Failed to authenticate with provider {provider}: Missing or invalid API key for {model_id}.` | Log error, flag model run as `FAILED_AUTH`, continue with remaining models. |
 | `ModelResponseTimeoutError` | `litellm.completion` call exceeds timeout threshold (60s). | `[TIMEOUT_ERROR] Model {model_id} timed out after 60 seconds of unresponsiveness.` | Log timeout, retry up to 2 times, then fallback to retaining prior day's portfolio. |
 | `InvalidJSONSchemaError` | Model response fails Pydantic schema validation or outputs malformed JSON. (Rejected requests / unknown models fail fast as `FAILED_API` instead.) | `[SCHEMA_MISMATCH] Model {model_id} returned invalid JSON structure: {raw_response}. Validation Error: {error_details}` | Trigger schema-repair prompt retry. Fallback to prior portfolio if 3 retries fail. |
@@ -176,7 +176,6 @@ The system implements strict, explicit exception hierarchy to ensure visibility 
    * **Module 5 (Ledger Logger):** Append daily snapshots to `llmimt_history.csv` and write state update to `last_run.json`.
 
 3. **Automation Deployment (GitHub Actions):**
-   * Push the project to a private GitHub repo (`.gitignore` excludes `.env` and `.venv/`).
+   * Push the project to a GitHub repo (`.gitignore` excludes `.env` and `.venv/`).
    * Add the 4 API keys as Actions Secrets and the `MODEL_*` IDs as Actions Variables.
    * Trigger `Daily LLMIMT run` once via `workflow_dispatch` to confirm it commits the ledger.
-   * `run_llmimt.bat` remains available for manual local runs.
