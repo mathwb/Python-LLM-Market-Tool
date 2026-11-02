@@ -1,0 +1,10 @@
+# Secrets & local environment
+.env
+.venv/
+__pycache__/
+
+# Local run artifacts (the workflow uploads llmimt.log as an artifact instead)
+llmimt.log
+LLMIMT_CRITICAL.log
+pending_retry.json
+llmimt_history.backup.csv

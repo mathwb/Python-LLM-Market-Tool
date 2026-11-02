@@ -1,0 +1,68 @@
+name: Daily LLMIMT run
+
+on:
+  schedule:
+    # Weekdays, after the NYSE open in both EDT and EST (11:00/10:00 ET).
+    - cron: "0 15 * * 1-5"
+    # Backup run: no-op if the first succeeded (last_run.json idempotency),
+    # retries if yfinance data wasn't ready yet (exit 61).
+    - cron: "0 18 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Never let two runs write the ledger at the same time
+concurrency:
+  group: llmimt-daily
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run LLMIMT
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          # Unset variables arrive as "" and fall back to the code defaults
+          MODEL_ANTHROPIC_LARGE: ${{ vars.MODEL_ANTHROPIC_LARGE }}
+          MODEL_ANTHROPIC_SMALL: ${{ vars.MODEL_ANTHROPIC_SMALL }}
+          MODEL_GEMINI_LARGE: ${{ vars.MODEL_GEMINI_LARGE }}
+          MODEL_GEMINI_SMALL: ${{ vars.MODEL_GEMINI_SMALL }}
+          MODEL_OPENAI_LARGE: ${{ vars.MODEL_OPENAI_LARGE }}
+          MODEL_OPENAI_SMALL: ${{ vars.MODEL_OPENAI_SMALL }}
+          MODEL_XAI_LARGE: ${{ vars.MODEL_XAI_LARGE }}
+          MODEL_XAI_SMALL: ${{ vars.MODEL_XAI_SMALL }}
+        run: python llmimt_main.py
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llmimt-log-${{ github.run_id }}
+          path: llmimt.log
+          if-no-files-found: ignore
+
+      - name: Commit updated ledger
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add llmimt_history.csv last_run.json
+          git diff --cached --quiet || {
+            git commit -m "Daily LLMIMT run $(TZ=America/New_York date +%F)"
+            git push
+          }
