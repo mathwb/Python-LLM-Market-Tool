@@ -93,7 +93,7 @@ Each major provider runs a **large** and a **small** model (8 slots). Slot label
 
 ### 4.2. Automation (GitHub Actions)
 * **Workflow:** `.github/workflows/daily.yml`. API keys are repo **Secrets**; `MODEL_*` IDs are repo **Variables** (unset → code default).
-* **Trigger:** Weekdays at **15:00 UTC** (11:00 EDT / 10:00 EST) plus a backup run at **18:00 UTC**; `workflow_dispatch` allows manual runs.
+* **Trigger:** Weekdays at **15:17 UTC** (11:17 EDT / 10:17 EST) plus backup runs at **17:43** and **19:29 UTC**; `workflow_dispatch` allows manual runs. Off-the-hour minutes avoid GitHub dropping runs at peak load.
 * **Retry Loop:** If open prices aren't published yet, the script exits `61` and the backup run retries later.
 * **Idempotency:** Before running full execution, the script checks `last_run.json`. If `last_run_date == today_str` and `status == "SUCCESS"`, the script terminates immediately with log message `[INFO] Execution already completed for today. Exiting.`.
 * **Persistence:** The job commits `llmimt_history.csv` and `last_run.json` back to the repo and uploads `llmimt.log` as a run artifact.

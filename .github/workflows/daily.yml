@@ -2,11 +2,13 @@ name: Daily LLMIMT run
 
 on:
   schedule:
-    # Weekdays, after the NYSE open in both EDT and EST (11:00/10:00 ET).
-    - cron: "0 15 * * 1-5"
-    # Backup run: no-op if the first succeeded (last_run.json idempotency),
-    # retries if yfinance data wasn't ready yet (exit 61).
-    - cron: "0 18 * * 1-5"
+    # Weekdays, after the NYSE open in both EDT and EST (~11:17/10:17 ET).
+    # Off-the-hour minutes: GitHub delays or drops scheduled runs at :00 under load.
+    - cron: "17 15 * * 1-5"
+    # Backup runs: no-op once a run succeeds (last_run.json idempotency),
+    # and they retry if yfinance data wasn't ready yet (exit 61).
+    - cron: "43 17 * * 1-5"
+    - cron: "29 19 * * 1-5"
   workflow_dispatch:
 
 permissions:
